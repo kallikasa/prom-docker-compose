@@ -20,27 +20,12 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention=240h'
       - '--web.enable-lifecycle'
     restart: unless-stopped
-    expose:
-      - 9090
     ports:
       - "9090:9090"
-    links:
-      - cadvisor:cadvisor
-      - alertmanager:alertmanager
-#      - pushgateway:pushgateway
-    depends_on:
-      - cadvisor
-#      - pushgateway
     networks:
       - monitor-net
-#    deploy:
-#      placement:
-#        constraints:
-#          - node.hostname == ${HOSTNAME}
 
   blackboxexporter:
     image: bitnami/blackbox-exporter:latest
@@ -51,8 +36,6 @@ services:
     command:
       - '--config.file=/etc/blackbox_exporter/blackbox.yml'
     restart: unless-stopped
-    expose:
-      - 9115
     ports:
       - "9115:9115"
     networks:
@@ -70,25 +53,8 @@ services:
     command:
       - '--config.file=/etc/alertmanager/config.yml'
       - '--storage.path=/alertmanager'
-#    deploy:
-#      placement:
-#        constraints:
-#          - node.hostname == ${HOSTNAME}
-  cadvisor:
-    image: google/cadvisor
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    ports:
-      - 8080:8080
-    networks:
-      - monitor-net
-    restart: always
-    deploy:
-      mode: global
-
+      - '--cluster.peer=10.80:9093'
+      
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -99,10 +65,6 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=please_change_me
       - GF_USERS_ALLOW_SIGN_UP=false
     restart: unless-stopped
-    links:
-      - prometheus:prometheus
-    expose:
-      - 3000
     ports:
       - 3000:3000
     networks:
