@@ -10,6 +10,27 @@ volumes:
 
 services:
 
+  traefik:
+    image: traefik:latest
+    restart: always
+    ports: 
+      - 8080:8080
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev/null:/traefik.toml
+      - $PWD/ssl/:/ssl/
+      - /data/traefik/:/var/log/traefik
+    command: traefik --web --web.metrics.prometheus --web.metrics.prometheus.buckets="0.1,0.3,1.2,5.0" --docker --entryPoints='Name:https Address::443 TLS:/ssl/noc.crt,/ssl/noc.key' #--accesslogsfile=/var/log/traefik/access.log
+    labels:
+      traefik.protocol: http
+      "traefik.port": "8080"
+      "traefik.backend": manager
+      "traefik.frontend.rule": Host:traefik_selectel.sem.net
+      "traefik.frontend.entryPoints": https
+    networks:
+      - monitor-net
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -26,6 +47,16 @@ services:
       - "9090:9090"
     networks:
       - monitor-net
+    labels:
+      traefik.protocol: http
+      "traefik.port": "9093"
+      "traefik.backend": prometheus
+      "traefik.frontend.rule": Host:alertmanager.sem.net
+      "traefik.frontend.entryPoints": https
+      "traefik.network": "front"
+      traefik.frontend.headers.STSPreload: "True"
+      traefik.frontend.headers.forceSTSHeader: "True"
+      traefik.frontend.headers.STSSeconds: "315360000"
 
   blackboxexporter:
     image: bitnami/blackbox-exporter:latest
@@ -54,7 +85,7 @@ services:
       - '--config.file=/etc/alertmanager/config.yml'
       - '--storage.path=/alertmanager'
       - '--cluster.peer=10.80:9093'
-      
+
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
